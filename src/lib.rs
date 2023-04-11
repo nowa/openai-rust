@@ -14,8 +14,8 @@ lazy_static! {
 /// This is the main interface to interact with the api.
 pub struct Client {
     req_client: reqwest::Client,
+    base_url: reqwest::Url,
 }
-
 
 /// See <https://platform.openai.com/docs/api-reference/models>.
 pub mod models;
@@ -30,8 +30,13 @@ impl Client {
 
     /// Create a new client.
     /// This will automatically build a [reqwest::Client] used internally.
-    pub fn new(api_key: &str) -> Client {
+    pub fn new(api_key: &str, api_host: Option<String>) -> Client {
         use reqwest::header;
+        
+        let mut base_url = BASE_URL.clone();
+        if let Some(api_host) = api_host {
+            base_url.set_host(Some(&api_host)).unwrap();
+        }
 
         // Create the header map
         let mut headers = header::HeaderMap::new();
@@ -41,7 +46,8 @@ impl Client {
         let req_client = reqwest::ClientBuilder::new().default_headers(headers).build().unwrap();
 
         Client {
-            req_client,
+            req_client: req_client,
+            base_url: base_url
         }
     }
 
@@ -57,7 +63,7 @@ impl Client {
     /// 
     /// See <https://platform.openai.com/docs/api-reference/models/list>.
     pub async fn list_models(&self) -> Result<Vec<models::Model>, anyhow::Error> {
-        let mut url = BASE_URL.clone();
+        let mut url = self.base_url.clone();
         url.set_path("/v1/models");
 
         let res = self.req_client.get(url).send().await?;
@@ -89,7 +95,7 @@ impl Client {
     /// # })
     /// ```
     pub async fn create_chat(&self, args: chat::ChatArguments) -> Result<chat::ChatResponse, anyhow::Error>  {
-        let mut url = BASE_URL.clone();
+        let mut url = self.base_url.clone();
         url.set_path("/v1/chat/completions");
 
         let res = self.req_client.post(url).json(&args).send().await?;
@@ -134,7 +140,7 @@ impl Client {
         &self,
         args: chat::ChatArguments,
     ) -> Result<impl Stream<Item = Result<Vec<chat::stream::ChatResponseEvent>>>> {
-        let mut url = BASE_URL.clone();
+        let mut url = self.base_url.clone();
         url.set_path("/v1/chat/completions");
 
         // Enable streaming
@@ -165,7 +171,7 @@ impl Client {
     /// # })
     /// ```
     pub async fn create_completion(&self, args: completions::CompletionArguments) -> Result<completions::CompletionResponse> {
-        let mut url = BASE_URL.clone();
+        let mut url = self.base_url.clone();
         url.set_path("/v1/completions");
 
         let res = self.req_client.post(url).json(&args).send().await?;
