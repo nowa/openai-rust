@@ -198,6 +198,7 @@ pub mod stream {
 
         for event in events {
             if event.is_empty() {break};
+            if event.len() < 5 {break};
 
             // Remove the 'data: ' to make it valid JSON
             let str = event.strip_prefix("data: ").context("Unexpected response format")?;
